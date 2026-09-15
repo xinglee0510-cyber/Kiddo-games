@@ -206,10 +206,17 @@
     font-weight:800; font-size:.78rem; padding:6px 12px; border-radius:999px;
     font-variant-numeric:tabular-nums;
   }
+  /* The question sits over the stage, so it is always on screen with the game
+     and never needs scrolling to reach. */
   .question-card{
+    position:absolute; inset:0; z-index:3;
+    display:flex; align-items:center; justify-content:center; padding:12px;
+    background:rgba(10,16,28,.45);
+  }
+  .question-panel{
     background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
     padding:16px 18px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:12px;
-    align-items:center;
+    align-items:center; width:min(520px,100%);
   }
   .question-eyebrow{ font-weight:800; letter-spacing:.1em; text-transform:uppercase; font-size:.7rem; color:var(--text-dim); }
   .question-text{
@@ -228,7 +235,11 @@
   .opt-btn.correct{ background: color-mix(in srgb, var(--accent-2) 25%, var(--surface)); border-color:var(--accent-2); }
   .opt-btn.wrong{ background: color-mix(in srgb, var(--danger) 20%, var(--surface)); border-color:var(--danger); }
   .opt-btn:disabled{ cursor:default; }
-  .aim-hint{ text-align:center; font-weight:700; color:var(--text-dim); font-size:.85rem; min-height:1.2em; }
+  .aim-hint{
+    position:absolute; left:50%; bottom:12px; transform:translateX(-50%); margin:0; z-index:2;
+    background:rgba(20,24,34,.6); color:#fff; font-weight:700; font-size:.82rem;
+    padding:7px 16px; border-radius:999px; white-space:nowrap; pointer-events:none;
+  }
   .feedback-toast{
     position:absolute; left:50%; top:14px; transform:translateX(-50%);
     background:var(--gold); color:#3a2a06; font-family:var(--font-display); font-weight:800;
@@ -256,6 +267,18 @@
     .question-text{ font-size:1.7rem; }
     .opt-btn{ font-size:1.2rem; padding:13px 6px; }
     .setting-label{ min-width:0; }
+  }
+
+  /* On a narrow board the panel would cover the whole building, so shrink it
+     and sit it along the bottom edge with the answers in one row. */
+  @media (max-width:760px){
+    .question-card{ align-items:flex-end; padding:8px; }
+    .question-panel{ padding:9px 11px; gap:5px; border-radius:var(--radius-md); }
+    .question-eyebrow{ font-size:.58rem; letter-spacing:.06em; }
+    .question-text{ font-size:1.45rem; }
+    .question-options{ grid-template-columns:repeat(4,1fr); gap:7px; max-width:none; }
+    .opt-btn{ font-size:1.02rem; padding:10px 3px; }
+    .aim-hint{ font-size:.74rem; padding:6px 12px; bottom:9px; }
   }
 </style>
 
@@ -332,13 +355,15 @@
         <canvas id="gameCanvas" width="1120" height="630"></canvas>
         <div class="blocks-left-pill" id="blocksLeftPill">Blocks left: 0</div>
         <div class="feedback-toast" id="feedbackToast" hidden></div>
+        <div class="question-card" id="questionCard" hidden>
+          <div class="question-panel">
+            <span class="question-eyebrow">Solve to charge the boosters</span>
+            <div class="question-text" id="questionText">4 + 5</div>
+            <div class="question-options" id="questionOptions"></div>
+          </div>
+        </div>
+        <p class="aim-hint" id="aimHint" hidden>Pull back, then let go to launch!</p>
       </div>
-      <div class="question-card" id="questionCard" hidden>
-        <span class="question-eyebrow">Solve to charge the boosters</span>
-        <div class="question-text" id="questionText">4 + 5</div>
-        <div class="question-options" id="questionOptions"></div>
-      </div>
-      <p class="aim-hint" id="aimHint" hidden>Pull back, then let go to launch!</p>
     </section>
   </main>
 </div>
@@ -538,7 +563,7 @@ const MAX_PULL=140;
 const MIN_HIT_SPEED=110;
 const POWER_HIT_SPEED=520;      // above this, Xavi does double damage
 const FALL_DMG_SPEED=330;       // a block landing this hard takes damage
-const FALL_DMG_SPEED_FRAGILE=200;
+const FALL_DMG_SPEED_FRAGILE=300;  // ice survives a tumble; only hard landings shatter it
 const SLEEP_SPEED=7, SLEEP_TIME=0.3;
 const CHAR_SCALE=1.3;
 
@@ -2046,6 +2071,8 @@ function startLevel(i){
   updateHud();
   document.getElementById('feedbackToast').hidden = true;
   startShot();
+  /* Land on the board with the problem already in view. */
+  try{ window.scrollTo(0,0); }catch(e){}
 }
 
 /* ============================== MAIN LOOP ============================== */
