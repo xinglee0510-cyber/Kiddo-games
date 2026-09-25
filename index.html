@@ -196,10 +196,16 @@
 
   /* ---------- Game screen ---------- */
   .game-screen{ display:flex; flex-direction:column; gap:12px; }
+  /* Cap the board by viewport HEIGHT as well as width, so the top bar and the
+     whole board always land on screen with nothing to scroll to. */
   .stage{
     position:relative; width:100%; aspect-ratio:16/9; border-radius:var(--radius-lg);
     overflow:hidden; box-shadow:var(--shadow); border:1px solid var(--border); touch-action:none;
+    max-width:calc((100vh - 124px) * 16 / 9);
+    max-width:calc((100svh - 124px) * 16 / 9);
+    margin-inline:auto;
   }
+  @media (max-height:720px){ body{ padding-block:10px; } }
   .stage canvas{ width:100%; height:100%; display:block; }
   .blocks-left-pill{
     position:absolute; top:10px; left:10px; background:rgba(20,24,34,.55); color:#fff;
@@ -267,6 +273,11 @@
     .question-text{ font-size:1.7rem; }
     .opt-btn{ font-size:1.2rem; padding:13px 6px; }
     .setting-label{ min-width:0; }
+    /* long levels have up to 13 shots: stack the dots in two rows on a phone */
+    .shot-dots{ flex-wrap:wrap; max-width:78px; gap:3px; }
+    .shot-dot{ width:8px; height:8px; }
+    .shots-wrap canvas{ width:24px; height:24px; }
+    .topbar{ gap:8px; padding:8px 10px; }
   }
 
   /* On a narrow board the panel would cover the whole building, so shrink it
@@ -284,7 +295,7 @@
 
 <div class="app" id="app">
   <header class="topbar" id="topbar" hidden>
-    <button class="icon-btn" id="btnBack" aria-label="Back to buildings">
+    <button class="icon-btn" id="btnBack" aria-label="Back to levels">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
     </button>
     <div class="topbar-info">
@@ -332,8 +343,8 @@
     </section>
 
     <section id="screen-levels" class="screen levels-screen" hidden>
-      <h2>Choose a Building</h2>
-      <p class="levels-sub">Pick your math, pick your difficulty, then pick a building to bring down.</p>
+      <h2>Choose a Level</h2>
+      <p class="levels-sub">Pick your math, pick your difficulty, then pick a level to bring down.</p>
 
       <div class="settings-panel">
         <div class="setting-group">
@@ -341,8 +352,12 @@
           <div class="chip-row" id="mathChips"></div>
         </div>
         <div class="setting-group">
-          <span class="setting-label">Level</span>
+          <span class="setting-label">Difficulty</span>
           <div class="chip-row" id="diffChips"></div>
+        </div>
+        <div class="setting-group">
+          <span class="setting-label">Aim help</span>
+          <div class="chip-row" id="assistChips"></div>
         </div>
         <p class="setting-note" id="settingNote"></p>
       </div>
@@ -375,7 +390,7 @@
     <p class="score-line" id="modalScore"></p>
     <div class="modal-actions">
       <button class="btn btn-secondary" id="btnRetry">Retry</button>
-      <button class="btn btn-primary" id="btnNext">Next Building</button>
+      <button class="btn btn-primary" id="btnNext">Next Level</button>
     </div>
   </div>
 </div>
@@ -472,7 +487,7 @@ const DIFF_NOTES = {
   hard:   'Hard · Add & subtract two digits with two (58 + 37). Times & divide single digits, plus numbers up to 20 (16 × 7, 102 ÷ 6).'
 };
 
-const settings = { types:['add','sub'], difficulty:'easy' };
+const settings = { types:['add','sub'], difficulty:'easy', assist:true };
 function loadSettings(){
   try{
     const raw = localStorage.getItem('digitSiegeSettings');
@@ -483,6 +498,7 @@ function loadSettings(){
         if(!settings.types.length) settings.types = ['add'];
       }
       if(s && DIFFICULTIES.some(d=>d.key===s.difficulty)) settings.difficulty = s.difficulty;
+      if(s && typeof s.assist === 'boolean') settings.assist = s.assist;
     }
   }catch(e){}
 }
@@ -562,8 +578,12 @@ const PIVOT = { x:205, y:GROUND_Y-74 };
 const MAX_PULL=140;
 const MIN_HIT_SPEED=110;
 const POWER_HIT_SPEED=520;      // above this, Xavi does double damage
-const FALL_DMG_SPEED=330;       // a block landing this hard takes damage
-const FALL_DMG_SPEED_FRAGILE=300;  // ice survives a tumble; only hard landings shatter it
+const FALL_DMG_SPEED=430;       // a block landing this hard takes damage
+const FALL_DMG_SPEED_FRAGILE=360;  // ice survives a tumble; only hard landings shatter it
+const WAKE_SPEED=95;            // a resting block ignores bumps gentler than this
+const SEAT_FRICTION=0.80;       // per-frame grip of a block sitting on another
+const TIP_ACCEL=1100;
+const PHYS_STEP=1/60;           // physics always advances in these fixed steps           // how fast a piece hanging past its support slides off
 const SLEEP_SPEED=7, SLEEP_TIME=0.3;
 const CHAR_SCALE=1.3;
 
@@ -646,35 +666,54 @@ function drawHero(c, s, wobble, thrust){
 
 /* ============================== BLOCK MATERIALS ============================== */
 /* Colour says how tough a piece is: orange breaks in one hit, violet takes two,
-   cyan is brittle glass, crimson is the boss piece. */
+   green gem takes three, crimson boss takes four, cyan is brittle glass. */
 const BLOCK_TYPES = {
-  wood:{ hp:1, points:10, fillA:'#FFC24E', fillB:'#F2811B', stroke:'#A9510A', detail:'rgba(150,66,6,.38)' },
-  stone:{ hp:2, points:20, fillA:'#A594F5', fillB:'#6B4FD2', stroke:'#3C2795', detail:'rgba(48,28,120,.42)' },
-  ice:{ hp:1, points:15, fillA:'#A8F1FF', fillB:'#3FC2EA', stroke:'#146F99', detail:'rgba(12,84,120,.36)', fragile:true },
-  boss:{ hp:4, points:120, fillA:'#FF7F95', fillB:'#DC1C4B', stroke:'#840B2B', detail:'rgba(110,8,36,.4)', boss:true }
+  wood:{ hp:1, points:10, density:1.0, fillA:'#FFC24E', fillB:'#F2811B', stroke:'#A9510A', detail:'rgba(150,66,6,.38)' },
+  stone:{ hp:2, points:20, density:1.7, fillA:'#A594F5', fillB:'#6B4FD2', stroke:'#3C2795', detail:'rgba(48,28,120,.42)' },
+  ice:{ hp:1, points:15, density:0.85, fillA:'#A8F1FF', fillB:'#3FC2EA', stroke:'#146F99', detail:'rgba(12,84,120,.36)', fragile:true },
+  gem:{ hp:3, points:40, density:2.0, fillA:'#7DF5B4', fillB:'#14A85E', stroke:'#07592F', detail:'rgba(4,70,36,.42)' },
+  boss:{ hp:4, points:120, density:2.2, fillA:'#FF7F95', fillB:'#DC1C4B', stroke:'#840B2B', detail:'rgba(110,8,36,.4)', boss:true }
 };
 
 /* ============================== BUILDINGS ==============================
    Buildings are built from architectural pieces on a unit grid (1 unit = BLOCK).
-   A "room" is two pillars carrying a lintel across them -- knock a pillar out
-   and everything resting above it comes down. */
+   Floors stand on three or four posts rather than two, so a single lucky hit
+   takes out one post and the floor above still holds -- it takes real aim at
+   the right supports to bring a level down. Walls are laid in a running bond,
+   like real brickwork, so each brick rests across two below it. */
 function Builder(){
   const list = [];
   const api = {
     list: list,
     add: function(gx,gy,gw,gh,type,shape){ list.push({gx:gx,gy:gy,gw:gw,gh:gh,type:type,shape:shape}); return api; },
-    room: function(gx,gy,w,h,type,pw){
-      pw = pw || 0.65;
-      api.add(gx, gy, pw, h, type);
-      api.add(gx+w-pw, gy, pw, h, type);
-      api.add(gx-0.1, gy+h, w+0.2, 0.5, type);
-      return api;
+    /* A floor: `posts` evenly spaced posts with a beam across the top. Returns
+       the height of the top of the beam, ready for the next floor. */
+    bay: function(gx,gy,w,h,type,posts,pw,beamType){
+      posts = posts || 3; pw = pw || 0.6;
+      for(let i=0;i<posts;i++){
+        const x = gx + (w-pw)*(posts===1 ? 0.5 : i/(posts-1));
+        api.add(x, gy, pw, h, type);
+      }
+      api.add(gx-0.1, gy+h, w+0.2, 0.5, beamType||type);
+      return gy + h + 0.5;
     },
-    tower: function(gx,w,floors,type,fh){
-      fh = fh || 1.9;
-      let y = 0;
-      for(let i=0;i<floors;i++){ api.room(gx, y, w, fh, type); y += fh + 0.5; }
-      return y;
+    /* Running-bond wall: full bricks on even rows, offset by half a brick on
+       odd rows (with half-bricks at the ends when they are big enough). */
+    wall: function(gx,gy,w,rows,type,bw,bh){
+      bw = bw || 1; bh = bh || 0.5;
+      const n = Math.max(1, Math.round(w/bw)); bw = w/n;
+      for(let r=0;r<rows;r++){
+        const y = gy + r*bh;
+        if(r%2===0){
+          for(let c=0;c<n;c++) api.add(gx+c*bw, y, bw, bh, type);
+        } else {
+          const half = bw/2, withHalves = half >= 0.45;
+          if(withHalves) api.add(gx, y, half, bh, type);
+          for(let c=0;c<n-1;c++) api.add(gx+half+c*bw, y, bw, bh, type);
+          if(withHalves) api.add(gx+w-half, y, half, bh, type);
+        }
+      }
+      return gy + rows*bh;
     },
     roof: function(gx,gy,w,h,type){ return api.add(gx,gy,w,h,type,'triangle'); }
   };
@@ -682,90 +721,121 @@ function Builder(){
 }
 
 const LEVELS = [
+  /* 1. A cottage on three posts: knocking one out no longer drops the roof. */
   { name:'Sunny Cottage', shots:4, build:function(){ const b=Builder();
-      b.room(0,0,4,2.2,'wood',0.7);
-      b.add(1.7,0,0.9,0.9,'wood','circle');
-      b.roof(0.9,2.7,2.2,1.3,'wood');
+      const top = b.bay(0,0,4,2.0,'wood',3);
+      b.add(0.75,0,0.8,0.8,'wood','circle');
+      b.add(2.45,0,0.8,0.8,'wood');
+      b.roof(0.5,top,3.0,1.3,'wood');
+      b.add(3.55,top,0.5,0.8,'wood');                  // chimney
       return b.list; } },
 
+  /* 2. Two cottages with a stone garden wall between them. */
   { name:'Village Row', shots:5, build:function(){ const b=Builder();
-      b.room(0,0,3,2,'wood',0.6);   b.roof(0.5,2.5,2,1.1,'wood');
-      b.room(4,0,3,2,'wood',0.6);   b.roof(4.5,2.5,2,1.1,'wood');
-      b.add(3.15,0,0.8,0.8,'wood','circle');
+      let t = b.bay(0,0,3,1.8,'wood',3);    b.roof(0.35,t,2.3,1.1,'wood');
+      b.wall(3.2,0,1.6,2,'stone',0.8,0.5);
+      b.add(3.6,1.0,0.8,0.8,'wood','circle');
+      t = b.bay(5.0,0,3,1.8,'wood',3);      b.roof(5.35,t,2.3,1.1,'wood');
       return b.list; } },
 
+  /* 3. A brick ground floor in running bond, a timber upper floor and roof. */
   { name:'Brick Bungalow', shots:5, build:function(){ const b=Builder();
-      b.room(0,0,5,2,'stone',0.7);
-      b.add(1.3,0,1,1,'wood','frame');
-      b.add(2.9,0,0.9,0.9,'wood','circle');
-      b.room(0.6,2.5,3.8,1.8,'wood',0.65);
-      b.roof(1.2,4.8,2.6,1.4,'wood');
+      const base = b.wall(0,0,5,2,'stone',1.25,0.5);
+      const t = b.bay(0.3,base,4.4,1.7,'wood',3);
+      b.add(1.15,base,0.8,0.8,'wood','frame');
+      b.add(3.05,base,0.8,0.8,'wood','circle');
+      b.roof(0.9,t,3.2,1.4,'wood');
       return b.list; } },
 
-  { name:'Staircase Hall', shots:7, build:function(){ const b=Builder();
-      b.tower(0,2.6,1,'wood',1.9);    b.roof(0.4,2.4,1.8,1.0,'wood');
-      b.tower(3.2,2.6,2,'wood',1.9);  b.roof(3.6,4.8,1.8,1.0,'wood');
-      b.tower(6.4,2.6,3,'stone',1.9); b.roof(6.8,7.2,1.8,1.0,'wood');
+  /* 4. A hall that steps up in three floors, each floor on its own posts. */
+  { name:'Staircase Hall', shots:5, build:function(){ const b=Builder();
+      const f1 = b.bay(0,0,7,1.8,'wood',5);
+      const f2 = b.bay(2.4,f1,4.6,1.7,'wood',3);
+      const f3 = b.bay(4.6,f2,2.4,1.6,'stone',2);
+      b.roof(0.3,f1,1.8,0.9,'wood');
+      b.roof(2.6,f2,1.7,0.9,'wood');
+      b.roof(4.9,f3,1.8,1.0,'wood');
+      b.add(0.7,0,0.8,0.8,'wood','circle');
+      b.add(2.3,0,0.8,0.8,'stone');
+      b.add(3.3,f1,0.8,0.8,'wood','frame');
       return b.list; } },
 
+  /* 5. A greenhouse: a timber frame holding glass panes, under a glass roof.
+        The panes shatter easily, but the frame is what holds it up. */
   { name:'Frosty Greenhouse', shots:5, build:function(){ const b=Builder();
-      b.add(0,0,6,0.5,'wood');
-      b.room(0.3,0.5,5.4,2.2,'ice',0.6);
-      b.add(2.7,0.5,0.6,2.2,'ice');
-      b.room(1.0,3.2,4.0,1.8,'ice',0.6);
-      b.roof(2.0,5.5,2.0,1.2,'ice');
+      b.add(0,0,6.2,0.5,'stone');                                   // stone sill
+      const f1 = b.bay(0.2,0.5,5.8,2.0,'wood',4,0.45,'stone');      // stone lintel
+      for(let k=0;k<3;k++) b.add(0.82+k*1.783,0.5,1.0,1.4,'ice');     // panes
+      const f2 = b.bay(0.9,f1,4.4,1.7,'wood',3,0.45);
+      for(let k=0;k<2;k++) b.add(1.52+k*1.975,f1,1.1,1.2,'ice');
+      b.roof(1.6,f2,3.0,1.3,'ice');
       return b.list; } },
 
-  { name:'Twin Towers', shots:7, build:function(){ const b=Builder();
-      b.tower(0,2.4,3,'wood',1.9);
-      b.tower(4.6,2.4,3,'wood',1.9);
-      b.add(1.9,7.2,3.0,0.5,'stone');
-      b.add(3.0,7.7,0.9,0.9,'wood','circle');
+  /* 6. Two three-post towers joined by a stone sky bridge carrying a gem. */
+  { name:'Twin Towers', shots:6, build:function(){ const b=Builder();
+      let a = 0, c = 0;
+      for(let f=0;f<3;f++){
+        a = b.bay(0,a,2.4,1.7,'wood',3,0.55);
+        c = b.bay(5.0,c,2.4,1.7,'wood',3,0.55);
+      }
+      b.add(1.9,a,3.6,0.5,'stone');
+      b.add(3.3,a+0.5,0.8,0.8,'gem');
+      b.roof(0.1,a,1.7,1.0,'wood');
+      b.roof(5.6,c,1.7,1.0,'wood');
       return b.list; } },
 
+  /* 7. A keep with a gem locked in its ground floor and battlements on top. */
   { name:'Stone Keep', shots:7, build:function(){ const b=Builder();
-      b.room(0,0,6.6,2.2,'stone',0.8);
-      b.add(3.1,0,0.7,2.2,'stone');
-      b.add(1.4,0,1,1,'wood','frame');
-      b.add(4.4,0,0.9,0.9,'wood','circle');
-      b.room(0.6,2.7,5.4,1.8,'stone',0.7);
-      b.add(3.15,2.7,0.6,1.8,'wood');
-      b.add(0.7,5.0,0.9,0.9,'stone');
-      b.add(2.85,5.0,0.9,0.9,'stone');
-      b.add(5.0,5.0,0.9,0.9,'stone');
+      const f1 = b.bay(0,0,6.6,2.0,'stone',4,0.7);
+      b.add(1.05,0,0.9,0.9,'wood','frame');
+      b.add(2.95,0,0.8,0.8,'gem');
+      b.add(4.75,0,0.8,0.8,'wood','circle');
+      const f2 = b.bay(0.5,f1,5.6,1.8,'stone',3,0.7);
+      b.add(1.5,f1,0.8,0.8,'wood');
+      b.add(4.1,f1,0.8,0.8,'wood','circle');
+      for(let k=0;k<5;k++) b.add(0.5+k*1.25,f2,0.65,0.65,'stone');   // battlements
       return b.list; } },
 
-  { name:'Castle Turrets', shots:8, build:function(){ const b=Builder();
-      b.tower(0,1.9,3,'stone',1.7);
-      b.tower(6.1,1.9,3,'stone',1.7);
-      b.tower(2.3,3.5,2,'wood',1.9);
-      b.add(3.3,4.8,1.5,1.1,'boss');
-      b.add(0.2,6.6,0.8,0.8,'stone'); b.add(1.1,6.6,0.8,0.8,'stone');
-      b.add(6.3,6.6,0.8,0.8,'stone'); b.add(7.2,6.6,0.8,0.8,'stone');
+  /* 8. Two stone turrets with buttresses, and a timber keep holding the boss. */
+  { name:'Castle Turrets', shots:7, build:function(){ const b=Builder();
+      let l = 0, r = 0;
+      for(let f=0;f<3;f++){ l = b.bay(0.6,l,1.8,1.6,'stone',2); r = b.bay(6.0,r,1.8,1.6,'stone',2); }
+      b.roof(0,0,0.6,1.2,'stone');               // buttresses leaning on the turrets
+      b.roof(7.8,0,0.6,1.2,'stone');
+      const k1 = b.bay(2.7,0,3.0,1.8,'wood',3,0.45);
+      b.add(3.19,0,0.75,0.75,'gem');
+      const k2 = b.bay(2.9,k1,2.6,1.7,'wood',2);
+      b.add(3.55,k1,1.3,1.0,'boss');
+      b.roof(3.0,k2,2.4,1.2,'wood');
+      b.roof(0.7,l,1.6,0.9,'wood');  b.roof(6.1,r,1.6,0.9,'wood');
       return b.list; } },
 
+  /* 9. A nave of columns under a long roof, flanked by bell towers. */
   { name:'Grand Cathedral', shots:8, build:function(){ const b=Builder();
-      b.tower(0,2.0,2,'stone',1.8);
-      b.tower(6.0,2.0,2,'stone',1.8);
-      b.tower(2.4,3.2,3,'stone',1.7);
-      b.add(3.2,6.6,1.6,1.0,'boss');
-      b.roof(2.8,7.6,2.4,1.5,'wood');
-      b.add(0.4,4.6,0.9,0.9,'wood','circle');
-      b.add(6.7,4.6,0.9,0.9,'wood','circle');
+      let l = 0, r = 0;
+      for(let f=0;f<2;f++){ l = b.bay(0,l,1.9,1.8,'stone',2); r = b.bay(6.3,r,1.9,1.8,'stone',2); }
+      const n1 = b.bay(2.2,0,3.8,2.2,'stone',3,0.55);
+      b.add(2.84,0,0.9,0.9,'gem','circle');                 // rose windows
+      b.add(4.47,0,0.9,0.9,'wood','circle');
+      const n2 = b.bay(2.5,n1,3.2,1.8,'wood',2);
+      b.add(3.45,n1,1.3,1.0,'boss');
+      b.roof(2.5,n2,3.2,1.6,'wood');
+      b.roof(0.2,l,1.5,1.1,'stone');  b.roof(6.5,r,1.5,1.1,'stone');
+      b.add(0.55,0,0.8,0.8,'wood','circle');  b.add(6.85,0,0.8,0.8,'wood','circle');
       return b.list; } },
 
+  /* 10. The fortress: a brick curtain wall, three-post towers, gems and bosses. */
   { name:'Dragon’s Fortress', shots:9, build:function(){ const b=Builder();
-      b.tower(0,2.2,3,'stone',1.8);
-      b.tower(6.5,2.2,3,'stone',1.8);
-      b.room(2.6,0,3.6,2.0,'stone',0.7);
-      b.add(4.2,0,0.7,2.0,'stone');
-      b.add(3.35,0,0.8,0.8,'wood','circle');
-      b.room(2.8,2.5,3.2,1.8,'wood',0.65);
-      b.add(3.6,4.8,1.4,1.1,'boss');
-      b.add(0.3,6.9,0.9,0.9,'boss');
-      b.add(6.8,6.9,0.9,0.9,'boss');
-      b.add(1.3,6.9,0.8,0.8,'stone');
-      b.add(7.8,6.9,0.8,0.8,'stone');
+      let l = 0, r = 0;
+      for(let f=0;f<3;f++){ l = b.bay(0,l,2.0,1.7,'stone',2); r = b.bay(6.5,r,2.0,1.7,'stone',2); }
+      const w = b.wall(2.25,0,4.0,2,'stone',1.33,0.5);
+      const g1 = b.bay(2.45,w,3.6,1.8,'wood',3);
+      b.add(3.1,w,0.8,0.8,'gem');
+      const g2 = b.bay(2.75,g1,3.0,1.6,'stone',2);
+      b.add(3.6,g1,1.3,1.0,'boss');
+      b.roof(3.0,g2,2.5,1.2,'wood');
+      b.add(0.15,l,0.9,0.9,'boss');  b.add(1.1,l,0.8,0.8,'gem');
+      b.add(7.45,r,0.9,0.9,'boss');  b.add(6.55,r,0.8,0.8,'gem');
       return b.list; } }
 ];
 
@@ -800,7 +870,7 @@ let blocksTotal = 0, blocksRemaining = 0;
 let shotIndex = 0;
 let currentPower = 1;
 let currentQuestion = null;
-let dragging = false, dragPos = {x:0,y:0};
+let dragging = false, dragPos = {x:0,y:0}, dragOrigin = {x:0,y:0};
 let resolveTimer = 0;
 let idCounter = 1;
 let lastAnswerCorrect = false;
@@ -900,7 +970,7 @@ function answerQuestion(idx){
   buttons[currentQuestion.correctIndex].classList.add('correct');
   if(!correct){ buttons[idx].classList.add('wrong'); Sound.wrong(); }
   else { Sound.correct(); score += 20; showToast('+20 Correct!'); }
-  currentPower = correct ? 1 : 0.6;
+  currentPower = correct ? 1 : 0.8;  // a miss still reaches, it just hits softer
   retriesRemaining = correct ? 1 : 0;  // one retry shot if answer is correct
   setTimeout(function(){
     document.getElementById('questionCard').hidden = true;
@@ -922,7 +992,8 @@ function launch(vx, vy){
   blockCountBeforeShot = blocksRemaining;
   projectiles.push({
     id: idCounter++, x:PIVOT.x, y:PIVOT.y, vx:vx, vy:vy,
-    r: HERO.radius, restTimer:0, life:0, hitCooldown:{}, trail:[]
+    r: HERO.radius, restTimer:0, life:0, hitCooldown:{}, trail:[],
+    rot: Math.atan2(vx, -vy)   // nose already pointed down the launch line
   });
   Sound.launch();
   state='flying';
@@ -961,7 +1032,7 @@ function checkStanding(i){
   const s = supportInfo(i);
   if(!s.supported){ b.dynamic = true; b.asleep = false; b.sleepTimer = 0; return false; }
   if(!s.ground){
-    const tol = 4;
+    const tol = Math.max(4, b.w*0.06);
     if(b.x < s.minX - tol || b.x > s.maxX + tol){
       const dir = (b.x < s.minX) ? -1 : 1;
       b.dynamic = true; b.asleep = false; b.sleepTimer = 0;
@@ -970,6 +1041,12 @@ function checkStanding(i){
     }
   }
   return true;
+}
+
+/* Heavier pieces (bigger, or denser material) are harder to shove. */
+function blockMass(b){
+  const area = ((b.w+3)*(b.h+3))/(BLOCK*BLOCK);
+  return Math.max(0.35, area*(BLOCK_TYPES[b.type].density||1));
 }
 
 function damageBlock(b, amount){
@@ -996,6 +1073,15 @@ function updatePhysics(dt){
     p.trail.push({x:p.x, y:p.y});
     if(p.trail.length > 9) p.trail.shift();
 
+    /* Point him along the flight path -- nose toward the blocks, boosters
+       trailing behind -- easing back upright once he is done moving. */
+    const spd = Math.hypot(p.vx, p.vy);
+    const target = spd > 70 ? Math.atan2(p.vx, -p.vy) : 0;
+    let turn = target - p.rot;
+    while(turn >  Math.PI) turn -= Math.PI*2;
+    while(turn < -Math.PI) turn += Math.PI*2;
+    p.rot += turn * Math.min(1, dt*12);
+
     if(p.y + p.r > GROUND_Y){
       p.y = GROUND_Y - p.r;
       p.vy = -p.vy*0.3;
@@ -1016,9 +1102,10 @@ function updatePhysics(dt){
         if(speed > MIN_HIT_SPEED){
           const dmg = speed > POWER_HIT_SPEED ? 2 : 1;
           b.dynamic = true; b.asleep = false; b.sleepTimer = 0;
-          const knock = speed*0.62;
-          b.vx += col.nx*knock + p.vx*0.16;
-          b.vy += col.ny*knock*0.6;
+          const heft = 1/Math.sqrt(Math.max(0.5, blockMass(b)));
+          const knock = speed*0.55*heft;
+          b.vx += (col.nx*knock + p.vx*0.12)*heft;
+          b.vy += col.ny*knock*0.55;
           p.vx = p.vx*0.42 + col.nx*speed*0.18;
           p.vy = p.vy*0.42 + col.ny*speed*0.18;
           p.hitCooldown[b.id] = 0.35;
@@ -1045,10 +1132,23 @@ function updatePhysics(dt){
       if(checkStanding(i)) continue;
     }
 
+    /* Tipping: a piece whose middle hangs past the edge of whatever holds it
+       up slides off that edge and falls, instead of balancing on a corner. */
+    b.tipping = 0;
+    if(b.y + b.h/2 < GROUND_Y - 2){
+      const sp = supportInfo(i), tol = Math.max(4, b.w*0.06);
+      if(sp.supported){
+        if(b.x < sp.minX - tol) b.tipping = -1;
+        else if(b.x > sp.maxX + tol) b.tipping = 1;
+      }
+    }
+    if(b.tipping){ b.vx += b.tipping*TIP_ACCEL*dt; }
+
     b.vy += GRAVITY*dt*0.9;
     b.vx *= 0.985;
     b.x += b.vx*dt; b.y += b.vy*dt;
-    b.angle += b.vx*0.0025*dt*60;
+    if(b.tipping) b.angle += b.tipping*6*dt;          // visibly leans the way it falls
+    else b.angle += b.vx*0.0025*dt*60;
 
     let grounded = false;
     if(b.y + b.h/2 > GROUND_Y){
@@ -1073,23 +1173,41 @@ function updatePhysics(dt){
         const overlapX = (b.w+o.w)/2 - Math.abs(b.x-o.x);
         const overlapY = (b.h+o.h)/2 - Math.abs(b.y-o.y);
         const closing = Math.hypot(b.vx-o.vx, b.vy-o.vy);
-        if(overlapX < overlapY){
+        if(overlapX < overlapY || overlapX < 5){
           const dir = b.x < o.x ? -1 : 1;
           const push = o.dynamic ? overlapX/2 : overlapX;
           b.x += dir*push;
+          const share = blockMass(b)/(blockMass(b)+blockMass(o));
           if(o.dynamic){
             o.x -= dir*push;
-            if(Math.abs(b.vx) > 10){ o.vx += b.vx*0.12; if(o.asleep){ o.asleep=false; o.sleepTimer=0; } }
+            if(Math.abs(b.vx) > 10){ o.vx += b.vx*0.22*share; if(o.asleep && closing > WAKE_SPEED){ o.asleep=false; o.sleepTimer=0; } }
           }
           b.vx *= 0.55;
         } else {
-          const dir = b.y < o.y ? -1 : 1;
-          const push = o.dynamic ? overlapY/2 : overlapY;
-          b.y += dir*push;
-          if(o.dynamic){ o.y -= dir*push; }
-          if(dir<0){ b.vy = Math.min(b.vy,0); grounded = true; }
+          /* Stacked pieces: the lower one holds the upper one up. Only the
+             upper piece moves, so a stack rests instead of squashing into
+             itself (splitting the overlap made towers slowly sink). */
+          if(b.y < o.y){
+            b.y -= overlapY;
+            b.vy = Math.min(b.vy,0); grounded = true;
+            /* friction: a piece sitting on another grips it instead of skating off */
+            if(!b.tipping){
+              const rel = b.vx - (o.dynamic ? o.vx : 0);
+              b.vx -= rel*(1-SEAT_FRICTION);
+            }
+          } else if(o.dynamic && !o.asleep){
+            o.y -= overlapY;
+            o.vy = Math.min(o.vy,0);
+          } else {
+            b.y += overlapY;
+            b.vy = Math.max(b.vy,0);
+          }
         }
-        if(!o.dynamic){ o.dynamic = true; o.asleep=false; o.vx += b.vx*0.08; }
+        /* a resting piece only starts moving if it is struck hard enough */
+        if(!o.dynamic && closing > WAKE_SPEED){
+          o.dynamic = true; o.asleep=false;
+          o.vx += b.vx*0.14*(blockMass(b)/(blockMass(b)+blockMass(o)));
+        }
 
         // a heavy landing damages what it lands on, and itself
         const thresh = BLOCK_TYPES[b.type].fragile ? FALL_DMG_SPEED_FRAGILE : FALL_DMG_SPEED;
@@ -1104,7 +1222,8 @@ function updatePhysics(dt){
     if(!b.alive) continue;
 
     const speed = Math.hypot(b.vx,b.vy);
-    if(grounded && speed < SLEEP_SPEED){ b.sleepTimer = (b.sleepTimer||0) + dt; }
+    if(grounded && !b.tipping && speed < 60) b.angle *= Math.max(0, 1 - dt*9);
+    if(grounded && !b.tipping && speed < SLEEP_SPEED){ b.sleepTimer = (b.sleepTimer||0) + dt; }
     else { b.sleepTimer = 0; }
     if(b.sleepTimer > SLEEP_TIME){ b.asleep = true; b.vx=0; b.vy=0; }
   }
@@ -1202,7 +1321,7 @@ function endLevel(){
   document.getElementById('modalStars').innerHTML = [0,1,2].map(function(i){ return svgStar(i<stars); }).join('');
   document.getElementById('modalScore').textContent = 'Score: '+score+' · '+cleared+'/'+blocksTotal+' pieces cleared';
   const nextBtn = document.getElementById('btnNext');
-  nextBtn.textContent = (currentLevelIndex+1 < LEVELS.length) ? 'Next Building' : 'Back to Buildings';
+  nextBtn.textContent = (currentLevelIndex+1 < LEVELS.length) ? 'Next Level' : 'Back to Levels';
   if(stars>0) Sound.win();
   document.getElementById('levelCompleteModal').hidden = false;
 }
@@ -1644,10 +1763,12 @@ function drawAimIndicator(){
   if(!dragging) return;
   const dx = PIVOT.x-dragPos.x, dy = PIVOT.y-dragPos.y;
   const pull = Math.hypot(dx,dy);
-  const maxPull = MAX_PULL*currentPower;
-  const frac = clamp(pull/maxPull, 0, 1);
   if(pull < 6) return;
   const ang = Math.atan2(dy,dx);
+  /* The bar shows the strength he will really launch with: with aim help that
+     is the full power the answer earned, however short the drag. */
+  const v = aimVelocity();
+  const frac = v ? clamp(v.speed/HERO.maxSpeed, 0, 1) : 0;
 
   ctx.save();
   const shaftLen = 34 + frac*46;
@@ -1671,21 +1792,72 @@ function drawAimIndicator(){
   ctx.restore();
 }
 
-function drawTrajectoryPreview(){
-  if(!dragging) return;
+/* The one place a launch velocity is decided, so the dotted preview and the
+   real shot can never disagree. With aim help on, the drag picks the direction
+   and Xavi always leaves at the full power the answer earned. */
+function aimVelocity(){
   const dx = PIVOT.x - dragPos.x, dy = PIVOT.y - dragPos.y;
   const pull = Math.min(Math.hypot(dx,dy), MAX_PULL*currentPower);
-  if(pull<8) return;
+  if(pull < (settings.assist ? 8 : 12)) return null;
   const ang = Math.atan2(dy,dx);
-  const speed = (pull/(MAX_PULL*currentPower)) * HERO.maxSpeed;
-  let vx = Math.cos(ang)*speed, vy = Math.sin(ang)*speed;
-  let x = PIVOT.x, y = PIVOT.y;
-  ctx.fillStyle = 'rgba(30,36,51,.35)';
-  for(let i=0;i<20;i++){
-    vy += GRAVITY*0.03;
-    x += vx*0.03; y += vy*0.03;
-    if(y>GROUND_Y) break;
-    if(i%2===0){ ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill(); }
+  const speed = settings.assist
+    ? HERO.maxSpeed*currentPower
+    : (pull/MAX_PULL)*HERO.maxSpeed;
+  return { vx:Math.cos(ang)*speed, vy:Math.sin(ang)*speed, speed:speed };
+}
+
+function drawTrajectoryPreview(){
+  if(!dragging) return;
+  const v = aimVelocity();
+  if(!v) return;
+  /* Step exactly the way the real flight steps (same order, same fixed step),
+     so the arrows are where Xavi actually goes -- and stop at the first piece
+     he would hit, so the ring marks what he will knock. */
+  let vx=v.vx, vy=v.vy, x=PIVOT.x, y=PIVOT.y;
+  const pts=[]; let end=null, onBlock=false;
+  for(let i=0;i<720 && !end;i++){
+    vy += GRAVITY*PHYS_STEP;
+    x += vx*PHYS_STEP; y += vy*PHYS_STEP;
+    if(y + HERO.radius > GROUND_Y){ end = {x:x, y:GROUND_Y-HERO.radius}; break; }
+    if(x > WORLD_W+40 || x < -40) break;
+    for(let j=0;j<blocks.length;j++){
+      const b=blocks[j];
+      if(b.alive && circleRectCollide(x,y,HERO.radius,b.x,b.y,b.w,b.h).colliding){ end={x:x,y:y}; onBlock=true; break; }
+    }
+    if(!end) pts.push({x:x, y:y, a:Math.atan2(vy,vx)});
+  }
+  /* Orange arrowheads, evenly spaced along the path, pointing the way he
+     travels; dark-rimmed so they read over sky, grass and brickwork alike. */
+  const spacing = settings.assist ? 52 : 78;
+  const marks=[]; let run=spacing*0.7, prev={x:PIVOT.x,y:PIVOT.y};
+  for(const q of pts){ run += Math.hypot(q.x-prev.x, q.y-prev.y); prev=q; if(run>=spacing){ marks.push(q); run=0; } }
+  for(let i=0;i<marks.length;i++){
+    const f = 1 - i/Math.max(1,marks.length);
+    ctx.globalAlpha = 0.6 + 0.4*f;
+    ctx.save();
+    ctx.translate(marks[i].x, marks[i].y);
+    ctx.rotate(marks[i].a);
+    ctx.beginPath();
+    ctx.moveTo(9,0); ctx.lineTo(-5.5,-6.5); ctx.lineTo(-2.5,0); ctx.lineTo(-5.5,6.5);
+    ctx.closePath();
+    ctx.lineJoin = 'round'; ctx.lineWidth = 2.4;
+    ctx.strokeStyle = 'rgba(46,18,0,.85)'; ctx.stroke();
+    ctx.fillStyle = '#FF7A2F'; ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+  /* Target: a round reticle on the block he will hit, or a ring on the ground. */
+  if(settings.assist && end){
+    ctx.save(); ctx.translate(end.x, end.y);
+    const rx = onBlock ? 17 : 26, ry = onBlock ? 17 : 12;
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(20,26,40,.6)';
+    ctx.beginPath(); ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2); ctx.stroke();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#FFFFFF';
+    ctx.beginPath(); ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#E4564F';
+    ctx.beginPath(); ctx.arc(0,0,5,0,Math.PI*2); ctx.fill();
+    ctx.lineWidth = 1.6; ctx.strokeStyle = '#FFFFFF'; ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -1744,6 +1916,8 @@ function drawShapeBlock(b, def){
     ctx.beginPath(); ctx.moveTo(-b.w*0.16,-b.h*0.28); ctx.lineTo(b.w*0.04,-b.h*0.02); ctx.lineTo(-b.w*0.09,b.h*0.26); ctx.stroke();
     if(along){ ctx.beginPath(); ctx.moveTo(-b.w/2+4,0); ctx.lineTo(b.w/2-4,0); ctx.stroke(); }
     else { ctx.beginPath(); ctx.moveTo(0,-b.h/2+4); ctx.lineTo(0,b.h/2-4); ctx.stroke(); }
+  } else if(b.type==='gem'){
+    drawGemFacets(Math.min(b.w,b.h)*0.36);
   }
 
   if(def.boss){
@@ -1764,6 +1938,54 @@ function drawShapeBlock(b, def){
   drawHpPips(b);
 }
 
+/* A cut-gem face: a diamond table with facet lines and a sparkle. */
+function drawGemFacets(r){
+  ctx.save();
+  ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(255,255,255,.7)';
+  ctx.beginPath();
+  ctx.moveTo(0,-r); ctx.lineTo(r,0); ctx.lineTo(0,r); ctx.lineTo(-r,0); ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(4,70,36,.35)';
+  ctx.beginPath(); ctx.moveTo(-r,0); ctx.lineTo(r,0); ctx.moveTo(0,-r); ctx.lineTo(0,r); ctx.stroke();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath();
+  const sx=-r*0.35, sy=-r*0.4, k=r*0.28;
+  ctx.moveTo(sx,sy-k); ctx.lineTo(sx+k*0.3,sy-k*0.3); ctx.lineTo(sx+k,sy); ctx.lineTo(sx+k*0.3,sy+k*0.3);
+  ctx.lineTo(sx,sy+k); ctx.lineTo(sx-k*0.3,sy+k*0.3); ctx.lineTo(sx-k,sy); ctx.lineTo(sx-k*0.3,sy-k*0.3);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+/* Tough pieces crack as they are hit, so a hit that does not break a block
+   still visibly did something. One crack per hit taken, always the same
+   cracks for the same block. */
+function drawDamageCracks(b){
+  const taken = b.maxHp - b.hp;
+  if(taken<=0) return;
+  let seed = b.id*9301 + 49297;
+  const r = ()=>{ seed = (seed*9301+49297)%233280; return seed/233280; };
+  const hw = b.w*0.40, hh = (b.shape==='triangle' ? b.h*0.30 : b.h*0.40);
+  const oy = (b.shape==='triangle' ? b.h*0.12 : 0);
+  ctx.save();
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  for(let c=0;c<Math.min(taken,4);c++){
+    let x = (r()*2-1)*hw*0.5, y = oy + (r()*2-1)*hh*0.5;
+    const pts=[[x,y]];
+    const ang = r()*Math.PI*2;
+    for(let k=0;k<4;k++){
+      x += Math.cos(ang + (r()-0.5)*1.4)*Math.max(hw,hh)*0.36;
+      y += Math.sin(ang + (r()-0.5)*1.4)*Math.max(hw,hh)*0.36;
+      x = clamp(x,-hw,hw); y = clamp(y,oy-hh,oy+hh);
+      pts.push([x,y]);
+    }
+    ctx.strokeStyle='rgba(20,10,30,.72)'; ctx.lineWidth=3.4;
+    ctx.beginPath(); pts.forEach((q,i)=> i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1.3;
+    ctx.beginPath(); pts.forEach((q,i)=> i?ctx.lineTo(q[0]+1,q[1]+1):ctx.moveTo(q[0]+1,q[1]+1)); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawShapeCircle(b, def){
   const r = Math.min(b.w,b.h)/2*0.94;
   ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
@@ -1774,6 +1996,7 @@ function drawShapeCircle(b, def){
   ctx.beginPath(); ctx.arc(0,0,r*0.3,0,Math.PI*2); ctx.stroke();
   ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=2.2; ctx.lineCap='round';
   ctx.beginPath(); ctx.arc(-r*0.32,-r*0.32,r*0.35,Math.PI*1.05,Math.PI*1.7); ctx.stroke();
+  if(b.type==='gem') drawGemFacets(r*0.5);
 }
 
 function drawShapeTriangle(b, def){
@@ -1815,6 +2038,7 @@ function drawBlock(b){
   else if(b.shape==='triangle') drawShapeTriangle(b,def);
   else if(b.shape==='frame') drawShapeFrame(b,def);
   else drawShapeBlock(b,def);
+  drawDamageCracks(b);
 
   ctx.restore();
 }
@@ -1832,8 +2056,7 @@ function drawProjectile(p){
   }
   ctx.save();
   ctx.translate(p.x,p.y);
-  const ang = Math.atan2(p.vy,p.vx);
-  ctx.rotate(clamp(ang*0.35, -0.6, 0.6));
+  ctx.rotate(p.rot);
   drawHero(ctx, CHAR_SCALE, p.life*8, 1);
   ctx.restore();
 }
@@ -1883,7 +2106,8 @@ function render(){
     const nudge = 8 + frac*16;
     ctx.save();
     ctx.translate(PIVOT.x + Math.cos(ang)*nudge, PIVOT.y-6 + Math.sin(ang)*nudge);
-    ctx.rotate(ang*0.1);
+    /* Sitting on the launcher already aimed down the line he will fly. */
+    if(pull > 6) ctx.rotate(Math.atan2(-dx, dy));
     drawHero(ctx, CHAR_SCALE, 0, 0.3 + frac*0.5);
     ctx.restore();
   }
@@ -1900,33 +2124,34 @@ function canvasPointToWorld(clientX, clientY){
 canvas.addEventListener('pointerdown', function(e){
   if(state!=='aiming') return;
   const pt = canvasPointToWorld(e.clientX, e.clientY);
-  if(Math.hypot(pt.x-PIVOT.x, pt.y-(PIVOT.y-6)) < 95){
-    dragging = true; dragPos = pt;
+  /* With aim help on, a drag can start anywhere on the board -- small hands
+     should not have to find and grab Xavi first. */
+  if(settings.assist || Math.hypot(pt.x-PIVOT.x, pt.y-(PIVOT.y-6)) < 95){
+    dragging = true;
+    dragOrigin = pt;                      // the pull is measured from the finger,
+    dragPos = { x:PIVOT.x, y:PIVOT.y };   // not from Xavi, so it works anywhere
     canvas.setPointerCapture(e.pointerId);
   }
 });
 canvas.addEventListener('pointermove', function(e){
   if(!dragging) return;
   const pt = canvasPointToWorld(e.clientX, e.clientY);
-  const dx = pt.x-PIVOT.x, dy = pt.y-PIVOT.y;
+  let dx = pt.x-dragOrigin.x, dy = pt.y-dragOrigin.y;
   const dist = Math.hypot(dx,dy);
   const maxPull = MAX_PULL*currentPower;
   if(dist > maxPull){
     const ang = Math.atan2(dy,dx);
-    dragPos = { x:PIVOT.x+Math.cos(ang)*maxPull, y:PIVOT.y+Math.sin(ang)*maxPull };
-  } else { dragPos = pt; }
+    dx = Math.cos(ang)*maxPull; dy = Math.sin(ang)*maxPull;
+  }
+  dragPos = { x:PIVOT.x+dx, y:PIVOT.y+dy };
 });
 function releaseDrag(){
   if(!dragging) return;
   dragging = false;
   // Pull back to fire: drag away from the target, let go to launch toward it.
-  const dx = PIVOT.x-dragPos.x, dy = PIVOT.y-dragPos.y;
-  const pull = Math.hypot(dx,dy);
-  const maxPull = MAX_PULL*currentPower;
-  if(pull < 14) return;
-  const speed = (pull/maxPull)*HERO.maxSpeed;
-  const ang = Math.atan2(dy,dx);
-  launch(Math.cos(ang)*speed, Math.sin(ang)*speed);
+  const v = aimVelocity();
+  if(!v) return;
+  launch(v.vx, v.vy);
 }
 canvas.addEventListener('pointerup', releaseDrag);
 canvas.addEventListener('pointercancel', function(){ dragging=false; });
@@ -2031,7 +2256,23 @@ function renderSettings(){
     diffWrap.appendChild(btn);
   });
 
-  document.getElementById('settingNote').textContent = DIFF_NOTES[settings.difficulty];
+  const assistWrap = document.getElementById('assistChips');
+  assistWrap.innerHTML = '';
+  [{k:true,label:'On'},{k:false,label:'Off'}].forEach(function(o){
+    const btn = document.createElement('button');
+    btn.className = 'chip diff';
+    btn.setAttribute('aria-pressed', settings.assist===o.k ? 'true' : 'false');
+    btn.textContent = o.label;
+    btn.addEventListener('click', function(){
+      settings.assist = o.k; saveSettings(); renderSettings();
+    });
+    assistWrap.appendChild(btn);
+  });
+
+  document.getElementById('settingNote').textContent = DIFF_NOTES[settings.difficulty] +
+    (settings.assist
+      ? '  ·  Aim help on: drag anywhere to aim, and Xavi always flies at full power.'
+      : '  ·  Aim help off: pull further back for a faster shot.');
 }
 
 function renderLevelsGrid(){
@@ -2047,7 +2288,7 @@ function renderLevelsGrid(){
     card.className = 'level-card';
     card.setAttribute('aria-label', level.name + (stars?(' ('+stars+' of 3 stars)'):' (not cleared yet)'));
     card.innerHTML =
-      '<div class="lvl-top"><span class="lvl-num">Building '+(i+1)+'</span>' +
+      '<div class="lvl-top"><span class="lvl-num">Level '+(i+1)+'</span>' +
         (isNext?'<span class="lvl-next">Next</span>':'') + '</div>' +
       buildingPreviewSvg(level.build(), false, i) +
       '<span class="lvl-name">'+level.name+'</span>' +
@@ -2076,16 +2317,23 @@ function startLevel(i){
 }
 
 /* ============================== MAIN LOOP ============================== */
-let lastTime = null;
+/* Physics runs in fixed 1/60 s steps however fast the screen refreshes, so a
+   shot flies -- and blocks slide and settle -- the same on a 60 Hz laptop,
+   a 120 Hz tablet or a slow phone, and matches the aiming arrows. */
+let lastTime = null, physAcc = 0;
 function frame(ts){
   if(lastTime==null) lastTime = ts;
   let dt = (ts-lastTime)/1000;
   lastTime = ts;
-  dt = Math.min(dt, 1/30);
-
-  if(state==='flying') updatePhysics(dt);
-  else if(state==='resolving'){ updatePhysics(dt); updateResolving(dt); }
-  else if(state==='aiming' || state==='question'){ updateParticles(dt); }
+  physAcc += Math.min(dt, 0.1);
+  let steps = 0;
+  while(physAcc >= PHYS_STEP && steps < 6){
+    if(state==='flying') updatePhysics(PHYS_STEP);
+    else if(state==='resolving'){ updatePhysics(PHYS_STEP); updateResolving(PHYS_STEP); }
+    else if(state==='aiming' || state==='question'){ updateParticles(PHYS_STEP); }
+    physAcc -= PHYS_STEP; steps++;
+  }
+  if(steps===6) physAcc = 0;
 
   if(!document.getElementById('screen-game').hidden) render();
   requestAnimationFrame(frame);
