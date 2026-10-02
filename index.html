@@ -1,4 +1,4 @@
-<title>Xavi's Rescue Mission</title>
+<title>Xavi's Incredible Block Siege</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap">
@@ -405,7 +405,7 @@
       <div class="hero">
         <span class="hero-eyebrow">A math rescue mission</span>
         <h1>Xavi's Incredible Block Siege</h1>
-        <p class="tagline">King Gloop has trapped Maysie! Solve the math and fly to the rescue.</p>
+        <p class="tagline">King Gloop has trapped Feyre! Solve the math and fly to the rescue.</p>
         <div class="hero-stage"><canvas id="heroCanvas" width="700" height="260"></canvas></div>
         <div class="hero-actions">
           <button class="btn btn-primary" id="btnPlay">Play</button>
@@ -422,9 +422,9 @@
           </div>
         </div>
         <div class="hero-card">
-          <canvas id="maysiePortrait" width="110" height="110"></canvas>
+          <canvas id="feyrePortrait" width="110" height="110"></canvas>
           <div>
-            <div class="hero-name">Maysie</div>
+            <div class="hero-name">Feyre</div>
             <div class="hero-desc">Xavi's best friend and fellow cadet. She's stuck in King Gloop's goo bubble!</div>
           </div>
         </div>
@@ -444,7 +444,7 @@
           <li>Right answer: pull Xavi back and let go to launch him at the building.</li>
           <li>Wrong answer: the minion fires a bonk-missile and Xavi loses a power bar. Three bonks and he's out!</li>
           <li>Three right in a row (or flying through a golden Star Cell) gives a super shot.</li>
-          <li>Knock the building down to beat the minion. Beat all ten to save Maysie!</li>
+          <li>Knock the building down to beat the minion. Beat all ten to save Feyre!</li>
         </ol>
       </div>
     </section>
@@ -454,7 +454,7 @@
       <p class="levels-sub">Pick your math, pick your difficulty, then pick a level to bring down.</p>
 
       <div class="mission">
-        <div class="mission-head" id="missionHead">Rescue Maysie</div>
+        <div class="mission-head" id="missionHead">Rescue Feyre</div>
         <canvas id="missionCanvas" width="980" height="120"></canvas>
       </div>
 
@@ -822,10 +822,10 @@ function drawHero(c, s, wobble, thrust){
   c.restore();
 }
 
-/* ============================== MAYSIE ============================== */
-/* Maysie: Xavi's best friend, a pink block cadet with a heart crest and a bow.
+/* ============================== FEYRE ============================== */
+/* Feyre: Xavi's best friend, a pink block cadet with a heart crest and a bow.
    mood: 'happy' | 'worried' | 'cheer' */
-function drawMaysie(c, s, wobble, thrust, mood){
+function drawFeyre(c, s, wobble, thrust, mood){
   c.save();
   const u = 19*s;
   const t = (typeof performance!=='undefined' ? performance.now() : Date.now())/1000;
@@ -945,7 +945,7 @@ function starPath(c, r, points, inner){
   c.closePath();
 }
 
-/* A soap-bubble prison. Maysie floats inside, waiting for Xavi. */
+/* A soap-bubble prison. Feyre floats inside, waiting for Xavi. */
 function drawBubble(c, r, t){
   c.save();
   const g = c.createRadialGradient(-r*0.3,-r*0.35,r*0.1, 0,0,r);
@@ -1426,7 +1426,7 @@ function drawSpeech(c, x, y, text, alpha){
 
 /* ============================== THE VILLAINS ============================== */
 /* One of King Gloop's minions guards each building; Gloop himself guards the
-   last one, with Maysie trapped in a bubble beside him. */
+   last one, with Feyre trapped in a bubble beside him. */
 const BOSSES = [
   { name:'Buzzy Bot', kind:'bot', extra:'bee', body:'#FFC928', light:'#FFF08A', dark:'#7A5600', accent:'#2B2433',
     intro:'Bzzz! This cottage is MINE!',
@@ -1474,14 +1474,14 @@ const BOSSES = [
     hurt:['Retreat!','My cathedral!','Medic!'], ouch:'Ow! That’s Major Ow to you!',
     win:'Mission accomplished! Ha!', defeat:'I surrender! Gloop is next door!' },
   { name:'King Gloop', kind:'slug', body:'#8FD84A', light:'#C8F07A', dark:'#2E6118', accent:'#FFD23F',
-    intro:'Bwa-ha-ha! Maysie is MY cadet now!',
+    intro:'Bwa-ha-ha! Feyre is MY cadet now!',
     taunts:['Goo bomb!','Bwa-ha-ha! WRONG!','Slime time!','Taste the goo!'],
     hurt:['NOT MY FORTRESS!','Grrr! My walls!','Slimy sludge!','You’ll pay for that!'], ouch:'OOF! Right in the crown!',
     win:'Bwa-ha-ha! Gloop wins!', defeat:'Noooo! My beautiful slime!' }
 ];
 
-/* Maysie radios Xavi after each victory. */
-const MAYSIE_LINES = [
+/* Feyre radios Xavi after each victory. */
+const FEYRE_LINES = [
   'Xavi! I knew you’d come! Keep going!',
   'You’re flying great! I can see the jungle from here!',
   'Ooh, a rainbow! You’re getting closer!',
@@ -3321,9 +3321,9 @@ function renderHeroScene(ts){
     heroCtx.strokeStyle='#A8601C'; heroCtx.lineWidth=2.4; heroCtx.stroke();
     heroCtx.restore();
 
-    // King Gloop hovering by the building, with Maysie trapped in her bubble
+    // King Gloop hovering by the building, with Feyre trapped in her bubble
     heroCtx.save(); heroCtx.translate(790, 66 + Math.sin(t*1.7)*4); drawGloop(heroCtx, 0.5, t, {}); heroCtx.restore();
-    heroCtx.save(); heroCtx.translate(868, 44 + Math.sin(t*2.1)*4); drawMaysie(heroCtx, 0.62, t*3, 0, 'worried'); drawBubble(heroCtx, 22, t); heroCtx.restore();
+    heroCtx.save(); heroCtx.translate(868, 44 + Math.sin(t*2.1)*4); drawFeyre(heroCtx, 0.62, t*3, 0, 'worried'); drawBubble(heroCtx, 22, t); heroCtx.restore();
 
     // Xavi idling above the pad
     heroCtx.save();
@@ -3345,9 +3345,9 @@ function bossSay(text, secs){
   if(!boss || boss.gone || !text) return;
   boss.say = text; boss.sayT = secs || 2.2;
 }
-function maysieSay(text, secs){
-  if(!boss || !boss.maysie || !text) return;
-  boss.maysie.say = text; boss.maysie.sayT = secs || 2.4;
+function feyreSay(text, secs){
+  if(!boss || !boss.feyre || !text) return;
+  boss.feyre.say = text; boss.feyre.sayT = secs || 2.4;
 }
 
 function makeBoss(levelIndex){
@@ -3361,7 +3361,7 @@ function makeBoss(levelIndex){
   boss = { idx:levelIndex, def:def, R:R, x:bx, y:by, baseX:bx, baseY:by,
            hurt:0, fire:0, laugh:0, dizzy:0, say:'', sayT:0, hitCd:0,
            scale:1, rot:0, gone:false, crownGone:false,
-           maysie: slug ? { free:false, x:bx+R*2.75, y:by-24, homeX:0, homeY:0, say:'', sayT:0, chat:4 } : null };
+           feyre: slug ? { free:false, x:bx+R*2.75, y:by-24, homeX:0, homeY:0, say:'', sayT:0, chat:4 } : null };
   // A golden Star Cell floats between the launcher and the building.
   const gapL = PIVOT.x + 170, gapR = Math.max(gapL + 60, x0 - 80);
   starCell = { x: gapL + (gapR-gapL)*(0.3 + 0.4*srnd(levelIndex*7+1)),
@@ -3397,7 +3397,7 @@ function missileImpact(m){
   if(m.goo) xaviGoo = 2.2;
   streak = 0;
   if(boss) boss.laugh = 1.2;
-  if(boss && boss.maysie) maysieSay(health>0 ? 'Shake it off, Xavi!' : 'Oh no, Xavi!');
+  if(boss && boss.feyre) feyreSay(health>0 ? 'Shake it off, Xavi!' : 'Oh no, Xavi!');
   enemyTimer = 1.2;
   updateHud();
 }
@@ -3469,9 +3469,9 @@ function updateFinisher(dt){
       for(let i=0;i<26;i++) particles.push({ x:boss.x, y:boss.y, vx:randInt(-280,280), vy:randInt(-300,60), life:0.9, size:randInt(4,8), color: pick(['#FFE15A','#FF6FB5','#3FC2EA','#7DF5B4','#C78BFF']), shape:'square' });
     }
   }
-  // Maysie's bubble pops and she flies down to Xavi
-  if(slug && boss.maysie){
-    const m = boss.maysie;
+  // Feyre's bubble pops and she flies down to Xavi
+  if(slug && boss.feyre){
+    const m = boss.feyre;
     if(f.impact && !f.popped && f.t > T_FLY + 0.7){
       f.popped = true; m.free = true; m.fromX = m.x; m.fromY = m.y; m.ft = 0;
       Sound.pop(); Sound.fanfare();
@@ -3480,7 +3480,7 @@ function updateFinisher(dt){
     if(m.free){
       const wasFlying = (m.ft||0) < 1;
       m.ft = Math.min(1, (m.ft||0) + dt/1.3);
-      if(wasFlying && m.ft>=1) maysieSay('Xavi! You saved me!', 2.4);
+      if(wasFlying && m.ft>=1) feyreSay('Xavi! You saved me!', 2.4);
       const e = m.ft*m.ft*(3-2*m.ft);
       m.x = quadBez(m.fromX, (m.fromX+PIVOT.x+80)/2, PIVOT.x+80, e);
       m.y = quadBez(m.fromY, Math.min(m.fromY, PIVOT.y)-80, PIVOT.y-6, e);
@@ -3508,7 +3508,7 @@ function updateActors(dt){
       boss.x = boss.baseX + Math.sin(t*0.9)*12;
       boss.y = boss.baseY + Math.sin(t*1.7)*6;
     }
-    const m = boss.maysie;
+    const m = boss.feyre;
     if(m){
       m.sayT = Math.max(0, m.sayT - dt);
       if(!m.free){
@@ -3516,7 +3516,7 @@ function updateActors(dt){
         m.chat -= dt;
         if(m.chat<=0 && (state==='intro' || state==='question' || state==='aiming')){
           m.chat = 9 + Math.random()*5;
-          maysieSay(m.first || pick(['Help, Xavi!','I believe in you!','Get me out of here!','You can do it!']));
+          feyreSay(m.first || pick(['Help, Xavi!','I believe in you!','Get me out of here!','You can do it!']));
           m.first = null;
         }
       }
@@ -3561,7 +3561,7 @@ function updateActors(dt){
 function drawBoss(){
   if(!boss) return;
   const t = bgNow();
-  const m = boss.maysie;
+  const m = boss.feyre;
   if(m && !m.free && !boss.gone){
     // a goo tether from Gloop's tail to the bubble
     ctx.save();
@@ -3584,11 +3584,11 @@ function drawBoss(){
   if(m){
     ctx.save(); ctx.translate(m.x, m.y);
     if(!m.free){
-      drawMaysie(ctx, 0.95, t*3, 0, 'worried');
+      drawFeyre(ctx, 0.95, t*3, 0, 'worried');
       drawBubble(ctx, 36, t);
     } else {
       const landed = (m.ft||0) >= 1;
-      drawMaysie(ctx, CHAR_SCALE*0.95, t*4, landed ? 0.25 : 0.9, 'cheer');
+      drawFeyre(ctx, CHAR_SCALE*0.95, t*4, landed ? 0.25 : 0.9, 'cheer');
     }
     ctx.restore();
   }
@@ -3637,7 +3637,7 @@ function drawSpeechBubbles(){
     const slug = boss.def.kind==='slug';
     drawSpeech(ctx, boss.x - boss.R*(slug?1.0:0.4), boss.y - boss.R*(slug?2.0:1.15), boss.say, a);
   }
-  const m = boss.maysie;
+  const m = boss.feyre;
   if(m && m.sayT>0){
     drawSpeech(ctx, m.x - 6, m.y - 40, m.say, Math.min(1, m.sayT*3));
   }
@@ -3782,7 +3782,7 @@ function at(c,x,y,f){ c.save(); c.translate(x,y); f(); c.restore(); }
 const STORY_W = 640, STORY_H = 320;
 
 const STORY_INTRO = [
-  { text:'Xavi and Maysie are Block Cadets. Every day, they fly rocket missions together!',
+  { text:'Xavi and Feyre are Block Cadets. Every day, they fly rocket missions together!',
     draw:function(c,W,H,t,pt){
       artSky(c,W,H,'#7CC1FF','#EAF6FF');
       puffArt(c,[[110,70,30],[470,55,26],[560,120,20]]);
@@ -3790,7 +3790,7 @@ const STORY_INTRO = [
       for(let i=0;i<6;i++){ c.globalAlpha=0.6; at(c, 120+i*70 - (pt*120%70), 230+Math.sin(i)*10, function(){ starPath(c,6); c.fillStyle='#FFE15A'; c.fill(); }); }
       c.globalAlpha=1;
       at(c,240,165+Math.sin(t*2.4)*10,function(){ c.rotate(0.35); drawHero(c,2.0,t*4,0.9); });
-      at(c,400,140+Math.sin(t*2.4+1)*10,function(){ c.rotate(0.35); drawMaysie(c,2.0,t*4,0.9,'cheer'); });
+      at(c,400,140+Math.sin(t*2.4+1)*10,function(){ c.rotate(0.35); drawFeyre(c,2.0,t*4,0.9,'cheer'); });
       at(c,320,92,function(){ heartPath(c,13); c.fillStyle='#FF6FB5'; c.fill(); });
     } },
   { text:'But one day, King Gloop the Space Slug zoomed in on his saucer...',
@@ -3798,12 +3798,12 @@ const STORY_INTRO = [
       artSky(c,W,H,'#4A5487','#F4B98A');
       artGround(c,W,H,H-34,'#5C7A4E');
       at(c,150,200+Math.sin(t*3)*6,function(){ drawHero(c,1.7,t*4,0.4); });
-      at(c,250,195+Math.sin(t*3+1)*6,function(){ drawMaysie(c,1.7,t*4,0.4,'worried'); });
+      at(c,250,195+Math.sin(t*3+1)*6,function(){ drawFeyre(c,1.7,t*4,0.4,'worried'); });
       const gx = 760 - 300*ease(pt/1.3);
       at(c,gx,120+Math.sin(t*2)*6,function(){ drawGloop(c,1.35,t,{laugh: pt>1.3 ? 1 : 0}); });
       if(pt>1.4) artText(c,'!!',200,120,40,'#E4364F');
     } },
-  { text:'...and trapped Maysie in a goo bubble! “Bwa-ha-ha! She’s MY cadet now!”',
+  { text:'...and trapped Feyre in a goo bubble! “Bwa-ha-ha! She’s MY cadet now!”',
     draw:function(c,W,H,t,pt){
       artSpace(c,W,H,t);
       at(c,110,230+Math.sin(t*3)*5,function(){ drawHero(c,1.7,t*4,0.3); });
@@ -3811,7 +3811,7 @@ const STORY_INTRO = [
       const mx=520, my=110+Math.sin(t*2.1)*7;
       c.strokeStyle='rgba(130,210,70,.85)'; c.lineWidth=6; c.lineCap='round';
       c.beginPath(); c.moveTo(420,115); c.quadraticCurveTo(470,150,mx-46,my); c.stroke();
-      at(c,mx,my,function(){ drawMaysie(c,1.3,t*3,0,'worried'); drawBubble(c,50,t); });
+      at(c,mx,my,function(){ drawFeyre(c,1.3,t*3,0,'worried'); drawBubble(c,50,t); });
     } },
   { text:'King Gloop’s nine minions guard the buildings on the way to his lair. Each one holds a Star Key.',
     draw:function(c,W,H,t,pt){
@@ -3855,14 +3855,14 @@ const STORY_INTRO = [
       }
       artText(c,'POWER', 440, 110, 28, '#27B04A');
     } },
-  { text:'Hang on, Maysie... Xavi is on his way!',
+  { text:'Hang on, Feyre... Xavi is on his way!',
     draw:function(c,W,H,t,pt){
       artSky(c,W,H,'#FF9A6B','#FFE3BE');
       artGround(c,W,H,H-30,'#4F9A47');
       for(let i=0;i<10;i++){ const a=i/10*Math.PI*2 + t*0.6; c.strokeStyle='rgba(255,255,255,.35)'; c.lineWidth=10;
         c.beginPath(); c.moveTo(320,170); c.lineTo(320+Math.cos(a)*400, 170+Math.sin(a)*400); c.stroke(); }
       at(c,320,170 - ease(pt/1.2)*40 + Math.sin(t*3)*4,function(){ c.rotate(0.12); drawHero(c,2.8,t*4,1.2); });
-      at(c,540,70+Math.sin(t*2)*5,function(){ c.globalAlpha=0.85; drawMaysie(c,0.9,t*3,0,'worried'); drawBubble(c,36,t); c.globalAlpha=1; });
+      at(c,540,70+Math.sin(t*2)*5,function(){ c.globalAlpha=0.85; drawFeyre(c,0.9,t*3,0,'worried'); drawBubble(c,36,t); c.globalAlpha=1; });
     } }
 ];
 
@@ -3873,11 +3873,11 @@ const STORY_END = [
       const gk = ease(pt/2);
       at(c,200,120+gk*160,function(){ c.rotate(pt*3); c.scale(1-gk*0.7,1-gk*0.7); drawGloop(c,1.2,t,{dizzy:1,noCrown:true}); });
       at(c,440,140,function(){
-        if(pt<0.6){ drawMaysie(c,1.4,t*3,0,'worried'); drawBubble(c,52,t); }
-        else { drawMaysie(c,1.6,t*4,0.8,'cheer'); if(pt<1.6){ c.save(); c.translate(70,-70); drawBurst(c,'POP!',0.75,'#FFC4E1'); c.restore(); } }
+        if(pt<0.6){ drawFeyre(c,1.4,t*3,0,'worried'); drawBubble(c,52,t); }
+        else { drawFeyre(c,1.6,t*4,0.8,'cheer'); if(pt<1.6){ c.save(); c.translate(70,-70); drawBurst(c,'POP!',0.75,'#FFC4E1'); c.restore(); } }
       });
     } },
-  { text:'Maysie: “Xavi, you did it! You saved me!”',
+  { text:'Feyre: “Xavi, you did it! You saved me!”',
     draw:function(c,W,H,t,pt){
       artSky(c,W,H,'#FFB3D4','#FFF0F7');
       artGround(c,W,H,H-36,'#7BC96F');
@@ -3885,7 +3885,7 @@ const STORY_END = [
         at(c, 80+i*70, y, function(){ heartPath(c,10+(i%3)*3); c.fillStyle= i%2 ? '#FF6FB5' : '#E0458F'; c.fill(); }); }
       c.globalAlpha=1;
       at(c,250,H-92+Math.abs(Math.sin(t*4))*-14,function(){ drawHero(c,2.2,t*4,0.4); });
-      at(c,390,H-92+Math.abs(Math.sin(t*4+1))*-14,function(){ drawMaysie(c,2.2,t*4,0.4,'cheer'); });
+      at(c,390,H-92+Math.abs(Math.sin(t*4+1))*-14,function(){ drawFeyre(c,2.2,t*4,0.4,'cheer'); });
     } },
   { text:'The Block Cadets fly home together, best friends forever. THE END!',
     draw:function(c,W,H,t,pt){
@@ -3900,7 +3900,7 @@ const STORY_END = [
       c.globalAlpha=1;
       const x = -80 + ((pt*90) % (W+200));
       at(c,x,170+Math.sin(t*2.4)*8,function(){ c.rotate(0.9); drawHero(c,1.6,t*4,1); });
-      at(c,x-90,190+Math.sin(t*2.4+1)*8,function(){ c.rotate(0.9); drawMaysie(c,1.6,t*4,1,'cheer'); });
+      at(c,x-90,190+Math.sin(t*2.4+1)*8,function(){ c.rotate(0.9); drawFeyre(c,1.6,t*4,1,'cheer'); });
       artText(c,'THE END', W/2, 60, 46, '#E0458F');
     } }
 ];
@@ -3946,13 +3946,13 @@ function showLevelIntro(){
     ? 'The final battle: King Gloop!' : def.name+' is guarding this building!';
   document.getElementById('introQuote').textContent = '“'+def.intro+'”';
   document.getElementById('introTip').textContent = def.kind==='slug'
-    ? 'Maysie is trapped in his goo bubble. Knock down his fortress to set her free!'
+    ? 'Feyre is trapped in his goo bubble. Knock down his fortress to set her free!'
     : 'Answer right to launch Xavi. Three wrong answers and he’s out of power!';
   document.getElementById('introCard').hidden = false;
   document.getElementById('questionCard').hidden = true;
   document.getElementById('aimHint').hidden = true;
   bossSay(def.intro, 3);
-  if(boss && boss.maysie){ boss.maysie.chat = 3.4; boss.maysie.first = 'Xavi! Over here!'; }
+  if(boss && boss.feyre){ boss.feyre.chat = 3.4; boss.feyre.first = 'Xavi! Over here!'; }
 }
 function introGo(){
   document.getElementById('introCard').hidden = true;
@@ -3981,7 +3981,7 @@ function showOutcome(){
   document.getElementById('modalScore').textContent = 'Score: '+score+' · '+cleared+'/'+blocksTotal+' pieces knocked out';
   if(o.kind==='win'){
     title.textContent = def.name+' defeated!';
-    story.textContent = 'Maysie: “'+MAYSIE_LINES[i]+'”';
+    story.textContent = 'Feyre: “'+FEYRE_LINES[i]+'”';
     starsEl.innerHTML = [0,1,2].map(function(k){ return svgStar(k<o.stars); }).join('');
     document.getElementById('btnRetry').textContent = 'Play again';
     document.getElementById('btnNext').textContent = (i+1 < LEVELS.length) ? 'Next Level' : 'Back to Levels';
@@ -4021,13 +4021,13 @@ function drawIntroArt(c,W,H,t){
   artSky(c,W,H,sky[0],sky[1]);
   if(BOSSES[i].kind==='slug'){
     at(c,W*0.4,H*0.6+Math.sin(t*2)*4,function(){ drawGloop(c,0.8,t,{}); });
-    at(c,W*0.85,H*0.38+Math.sin(t*2.2)*4,function(){ drawMaysie(c,0.75,t*3,0,'worried'); drawBubble(c,28,t); });
+    at(c,W*0.85,H*0.38+Math.sin(t*2.2)*4,function(){ drawFeyre(c,0.75,t*3,0,'worried'); drawBubble(c,28,t); });
   } else {
     at(c,W/2,H*0.55+Math.sin(t*2)*5,function(){ drawMinion(c,BOSSES[i],1.55,t,{}); });
   }
 }
 
-/* The rescue map on the level screen: nine minions, then Gloop and Maysie. */
+/* The rescue map on the level screen: nine minions, then Gloop and Feyre. */
 function drawMissionMap(){
   const cv = document.getElementById('missionCanvas');
   const W = 980, H = 120;
@@ -4046,18 +4046,18 @@ function drawMissionMap(){
     c.lineWidth=3; c.strokeStyle = b ? '#FFB03D' : 'rgba(120,130,160,.45)'; c.stroke();
     at(c,x,76,function(){
       if(i<9){ drawMinion(c,BOSSES[i],0.55,t+i,{dizzy: b?1:0}); }
-      else if(progress.rescued){ c.translate(-14,0); drawMaysie(c,0.7,t*3,0,'cheer'); c.translate(28,0); drawHero(c,0.7,t*3,0); }
+      else if(progress.rescued){ c.translate(-14,0); drawFeyre(c,0.7,t*3,0,'cheer'); c.translate(28,0); drawHero(c,0.7,t*3,0); }
       else { drawGloop(c,0.36,t,{}); }
     });
-    if(i===9 && !progress.rescued){ at(c,x+30,40,function(){ drawMaysie(c,0.42,t*3,0,'worried'); drawBubble(c,15,t); }); }
+    if(i===9 && !progress.rescued){ at(c,x+30,40,function(){ drawFeyre(c,0.42,t*3,0,'worried'); drawBubble(c,15,t); }); }
     c.font='800 12px "Nunito", system-ui, sans-serif'; c.fillStyle='rgba(120,130,160,.95)'; c.textAlign='center';
     c.fillText(String(i+1), x, 118);
   }
   if(frontier<10){ at(c,nx(frontier),28+Math.sin(t*3)*3,function(){ drawHero(c,0.62,t*3,0.4); }); }
   const head = document.getElementById('missionHead');
   const nBeaten = [0,1,2,3,4,5,6,7,8].filter(beaten).length;
-  head.textContent = progress.rescued ? 'Mission complete — Maysie is safe!'
-    : 'Rescue Maysie · '+nBeaten+' of 9 minions beaten'+(nBeaten===9 ? ' · King Gloop awaits!' : '');
+  head.textContent = progress.rescued ? 'Mission complete — Feyre is safe!'
+    : 'Rescue Feyre · '+nBeaten+' of 9 minions beaten'+(nBeaten===9 ? ' · King Gloop awaits!' : '');
 }
 
 /* Shared animation loop for the story, intro card, result art and map. */
@@ -4123,8 +4123,8 @@ function boot(hotData){
   if(hotData && hotData.rescued) progress.rescued = true;
   document.getElementById('btnMute').innerHTML = svgSpeaker(!Sound.isMuted());
   paintHeroIcon(document.getElementById('heroPortrait'), 1.5, 0.4);
-  (function(){ const cv=document.getElementById('maysiePortrait'), c=cv.getContext('2d');
-    c.clearRect(0,0,cv.width,cv.height); c.save(); c.translate(55,52); drawMaysie(c,1.5,0,0.4,'happy'); c.restore(); })();
+  (function(){ const cv=document.getElementById('feyrePortrait'), c=cv.getContext('2d');
+    c.clearRect(0,0,cv.width,cv.height); c.save(); c.translate(55,52); drawFeyre(c,1.5,0,0.4,'happy'); c.restore(); })();
   (function(){ const cv=document.getElementById('gloopPortrait'), c=cv.getContext('2d');
     c.clearRect(0,0,cv.width,cv.height); c.save(); c.translate(48,74); drawGloop(c,0.62,1.0,{}); c.restore(); })();
   if(!boot.loop){ boot.loop = true; requestAnimationFrame(overlayFrame); }
